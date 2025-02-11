@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import axiosRetry from 'axios-retry';
 import Papa from 'papaparse';
 import { useNavigate, Link } from 'react-router-dom';
 import { Bar } from 'react-chartjs-2';
@@ -14,7 +13,7 @@ import {
 } from 'chart.js';
 import ReactPaginate from 'react-paginate';
 import * as XLSX from 'xlsx';
-import { format } from 'date-fns'; // Importa a função format do date-fns
+import { format, parse } from 'date-fns'; // Importa funções do date-fns
 import './App.css';
 
 // Registra os componentes necessários do Chart.js
@@ -36,11 +35,25 @@ const Home = () => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' }); // Ordenação
   const navigate = useNavigate();
 
-  // Função para converter datas no formato dd/mm/aaaa para um objeto Date
+  // Função para converter yyyy-MM-dd para dd/mm/yyyy
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString) return '';
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
+  // Função para converter dd/mm/yyyy para yyyy-MM-dd
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    const [day, month, year] = dateString.split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
+  // Função para converter datas no formato dd/mm/yyyy para um objeto Date
   const parseDate = (dateString) => {
     if (!dateString) return null;
-    const [day, month, year] = dateString.split('/').map(Number); // Converte os valores para números
-    return new Date(year, month - 1, day); // Cria a data no fuso horário local
+    const [day, month, year] = dateString.split('/').map(Number);
+    return new Date(year, month - 1, day);
   };
 
   // Função genérica para buscar dados de uma planilha
@@ -294,273 +307,273 @@ const Home = () => {
     setCurrentPage(selected);
   };
 
-    // Cálculo do painel de resumo
-    const totalPrevisto = dadosFiltrados.reduce((acc, curr) => acc + (curr['Quantidade Prevista'] || 0), 0);
-    const totalEntregue = dadosFiltrados.reduce((acc, curr) => acc + (curr.QuantidadeEntregue || 0), 0);
-    const totalFalta = dadosFiltrados.reduce((acc, curr) => acc + Math.max(0, (curr['Quantidade Prevista'] || 0) - (curr.QuantidadeEntregue || 0)), 0);
-    const totalExcedente = dadosFiltrados.reduce((acc, curr) => acc + Math.max(0, (curr.QuantidadeEntregue || 0) - (curr['Quantidade Prevista'] || 0)), 0);
-  
-    return (
-      <div className={`container ${darkMode ? 'dark-mode' : ''}`}>
-        {/* Título */}
-        <h1 className="title">Dados Compilados</h1>
-  
-        {/* Painel de Resumo */}
-        <div className="summary-panel">
-          <div className="summary-item">
-            <strong>Total Previsto:</strong> {totalPrevisto}
-          </div>
-          <div className="summary-item">
-            <strong>Total Entregue:</strong> {totalEntregue}
-          </div>
-          <div className="summary-item">
-            <strong>Falta:</strong> {totalFalta}
-          </div>
-          <div className="summary-item">
-            <strong>Excedente:</strong> {totalExcedente}
-          </div>
+  // Cálculo do painel de resumo
+  const totalPrevisto = dadosFiltrados.reduce((acc, curr) => acc + (curr['Quantidade Prevista'] || 0), 0);
+  const totalEntregue = dadosFiltrados.reduce((acc, curr) => acc + (curr.QuantidadeEntregue || 0), 0);
+  const totalFalta = dadosFiltrados.reduce((acc, curr) => acc + Math.max(0, (curr['Quantidade Prevista'] || 0) - (curr.QuantidadeEntregue || 0)), 0);
+  const totalExcedente = dadosFiltrados.reduce((acc, curr) => acc + Math.max(0, (curr.QuantidadeEntregue || 0) - (curr['Quantidade Prevista'] || 0)), 0);
+
+  return (
+    <div className={`container ${darkMode ? 'dark-mode' : ''}`}>
+      {/* Título */}
+      <h1 className="title">Dados Compilados</h1>
+
+      {/* Painel de Resumo */}
+      <div className="summary-panel">
+        <div className="summary-item">
+          <strong>Total Previsto:</strong> {totalPrevisto}
         </div>
-  
-        {/* Botões de Ação */}
-        <div className="actions">
-          <button className="action-button" onClick={toggleDarkMode}>
-            {darkMode ? 'Modo Claro' : 'Modo Escuro'}
-          </button>
-          <button className="action-button" onClick={exportToExcel}>
-            Exportar para Excel
-          </button>
+        <div className="summary-item">
+          <strong>Total Entregue:</strong> {totalEntregue}
         </div>
-  
-        {/* Filtros */}
-        <div className="filters">
-          <label className="filter-label">
-            Período:
-            <select
-              className="filter-select"
-              value={periodoFiltro}
-              onChange={(e) => setPeriodoFiltro(e.target.value)}
-            >
-              <option value="30_dias">Últimos 30 dias</option>
-              <option value="proximos_30_dias">Próximos 30 dias</option>
-              <option value="mes_passado">Mês Passado</option>
-              <option value="mes_atual">Mês Atual</option>
-              <option value="customizado">Intervalo Customizado</option>
-            </select>
-          </label>
-          {periodoFiltro === 'customizado' && (
-            <div className="date-range">
-              <label className="filter-label">
-                Data Início:
-                <input
-                  type="date"
-                  className="filter-input"
-                  value={dataInicio}
-                  onChange={(e) => setDataInicio(e.target.value)}
-                />
-              </label>
-              <label className="filter-label">
-                Data Fim:
-                <input
-                  type="date"
-                  className="filter-input"
-                  value={dataFim}
-                  onChange={(e) => setDataFim(e.target.value)}
-                />
-              </label>
-            </div>
-          )}
-          <label className="filter-label">
-            Produto:
-            <select
-              className="filter-select"
-              value={produtoFiltro}
-              onChange={(e) => setProdutoFiltro(e.target.value)}
-            >
-              <option value="">Todos</option>
-              {produtosUnicos.map((produto) => (
-                <option key={produto} value={produto}>
-                  {produto}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="filter-label">
-            Situação:
-            <select
-              className="filter-select"
-              value={situacaoFiltro}
-              onChange={(e) => setSituacaoFiltro(e.target.value)}
-            >
-              <option value="">Todas</option>
-              <option value="falta">Falta</option>
-              <option value="excedente">Excedente</option>
-              <option value="igual">Igual</option>
-            </select>
-          </label>
-          <label className="filter-label">
-            Data de Entrega Real:
-            <input
-              type="date"
-              className="filter-input"
-              value={dataEntregaRealFiltro}
-              onChange={(e) => setDataEntregaRealFiltro(e.target.value)}
-            />
-          </label>
-          <label className="filter-label">
-            Ordenar Por:
-            <select
-              className="filter-select"
-              value={sortConfig.key}
-              onChange={(e) => handleSort(e.target.value)}
-            >
-              <option value="">Selecione</option>
-              <option value="PercentualEntrega">Percentual de Entrega</option>
-              <option value="QuantidadeEntregue">Mais Excedentes</option>
-              <option value="Data de Previsão de Entrega">Data de Previsão</option>
-              <option value="DataEntregaReal">Data de Entrega Real</option>
-            </select>
-          </label>
-          <button className="reload-button" onClick={reloadData} disabled={loading}>
-            Recarregar Dados
-          </button>
-          <Link to="/resumo" state={{ combinedData }}>
-            <button className="summary-button">Ver Resumo</button>
-          </Link>
+        <div className="summary-item">
+          <strong>Falta:</strong> {totalFalta}
         </div>
-  
-        {/* Loading e Erro */}
-        {loading && (
-          <div className="loading">
-            Carregando... <progress />
-          </div>
-        )}
-        {error && <div className="error">{error}</div>}
-        {!loading && !error && (
-          <>
-            {/* Tabela de Dados */}
-            <table className="data-table">
-              <thead>
-                <tr>
-                  {[
-                    'Código',
-                    'Produto',
-                    'Quantidade Prevista',
-                    'Data de Previsão',
-                    'Data de Entrega Real',
-                    'Entregue',
-                    'Percentual',
-                  ].map((header) => (
-                    <th
-                      key={header}
-                      className="table-header"
-                      onClick={() => handleSort(header.toLowerCase().replace(/ /g, '_'))}
-                    >
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.map((row, index) => {
-                  const dataPrevisao = parseDate(row['Data de Previsão de Entrega']);
-                  const dataEntregaReal = parseDate(row.DataEntregaReal);
-                  const diferenca = row.Diferenca; // Diferença entre entregue e previsto
-  
-                  // Ícone informativo com base na diferença
-                  const statusIcon = () => {
-                    if (diferenca === 0) {
-                      return '✅'; // Entrega completa
-                    } else if (diferenca > 0) {
-                      return '✅'; // Excedente
-                    } else {
-                      return '❌'; // Falta
-                    }
-                  };
-  
-                  return (
-                    <React.Fragment key={`${row.Codigo}-${row['Data de Previsão de Entrega']}-${index}`}>
-                      <tr className={getPercentualStyle(row.PercentualEntrega)}>
-                        <td>{row.Codigo}</td>
-                        <td>{row.Produto}</td>
-                        <td>{row['Quantidade Prevista']}</td>
-                        <td>{dataPrevisao ? format(dataPrevisao, 'dd/MM/yyyy') : 'N/A'}</td>
-                        <td className={dataEntregaReal && dataEntregaReal > dataPrevisao ? 'atrasado' : ''}>
-                          {dataEntregaReal ? format(dataEntregaReal, 'dd/MM/yyyy') : 'N/A'}
-                        </td>
-                        <td>{row.QuantidadeEntregue}</td>
-                        <td className={getPercentualStyle(row.PercentualEntrega)}>
-                          {row.PercentualEntrega}% {/* Exibe o percentual de entrega */}
-                        </td>
-                      </tr>
-                      {/* Gráfico abaixo da linha */}
-                      <tr>
-                        <td colSpan="7" style={{ padding: '10px 0' }}>
-                          <div style={{ width: '100%', height: '150px' }}>
-                            <Bar
-                              data={{
-                                labels: ['Previsto', 'Entregue'],
-                                datasets: [
-                                  {
-                                    label: 'Valores',
-                                    data: [row['Quantidade Prevista'], row.QuantidadeEntregue],
-                                    backgroundColor: ['#f0ad4e', '#5cb85c'], // Amarelo para previsto, verde para entregue
-                                    borderColor: ['#f0ad4e', '#5cb85c'],
-                                    borderWidth: 1,
-                                  },
-                                ],
-                              }}
-                              options={{
-                                indexAxis: 'y', // Define o gráfico como horizontal
-                                responsive: true,
-                                maintainAspectRatio: false, // Permite ajustar o tamanho manualmente
-                                plugins: {
-                                  legend: {
-                                    display: false, // Oculta a legenda
-                                  },
-                                  tooltip: {
-                                    enabled: true,
-                                  },
-                                },
-                                scales: {
-                                  x: {
-                                    beginAtZero: true,
-                                    max: Math.max(
-                                      row['Quantidade Prevista'],
-                                      row.QuantidadeEntregue
-                                    ), // Valor máximo dinâmico
-                                  },
-                                  y: {
-                                    barPercentage: 0.8, // Ajusta a largura das barras
-                                    categoryPercentage: 0.8, // Ajusta o espaçamento entre as categorias
-                                  },
-                                },
-                              }}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-  
-            {/* Paginação */}
-            <ReactPaginate
-              previousLabel={'Anterior'}
-              nextLabel={'Próximo'}
-              breakLabel={'...'}
-              pageCount={pageCount}
-              marginPagesDisplayed={2}
-              pageRangeDisplayed={5}
-              onPageChange={handlePageClick}
-              containerClassName={'pagination'}
-              activeClassName={'active'}
-            />
-          </>
-        )}
+        <div className="summary-item">
+          <strong>Excedente:</strong> {totalExcedente}
+        </div>
       </div>
-    );
-  };
-  
-  export default Home;
+
+      {/* Botões de Ação */}
+      <div className="actions">
+        <button className="action-button" onClick={toggleDarkMode}>
+          {darkMode ? 'Modo Claro' : 'Modo Escuro'}
+        </button>
+        <button className="action-button" onClick={exportToExcel}>
+          Exportar para Excel
+        </button>
+      </div>
+
+      {/* Filtros */}
+      <div className="filters">
+        <label className="filter-label">
+          Período:
+          <select
+            className="filter-select"
+            value={periodoFiltro}
+            onChange={(e) => setPeriodoFiltro(e.target.value)}
+          >
+            <option value="30_dias">Últimos 30 dias</option>
+            <option value="proximos_30_dias">Próximos 30 dias</option>
+            <option value="mes_passado">Mês Passado</option>
+            <option value="mes_atual">Mês Atual</option>
+            <option value="customizado">Intervalo Customizado</option>
+          </select>
+        </label>
+        {periodoFiltro === 'customizado' && (
+          <div className="date-range">
+            <label className="filter-label">
+              Data Início:
+              <input
+                type="date"
+                className="filter-input"
+                value={formatDateForInput(dataInicio)}
+                onChange={(e) => setDataInicio(formatDateForDisplay(e.target.value))}
+              />
+            </label>
+            <label className="filter-label">
+              Data Fim:
+              <input
+                type="date"
+                className="filter-input"
+                value={formatDateForInput(dataFim)}
+                onChange={(e) => setDataFim(formatDateForDisplay(e.target.value))}
+              />
+            </label>
+          </div>
+        )}
+        <label className="filter-label">
+          Produto:
+          <select
+            className="filter-select"
+            value={produtoFiltro}
+            onChange={(e) => setProdutoFiltro(e.target.value)}
+          >
+            <option value="">Todos</option>
+            {produtosUnicos.map((produto) => (
+              <option key={produto} value={produto}>
+                {produto}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="filter-label">
+          Situação:
+          <select
+            className="filter-select"
+            value={situacaoFiltro}
+            onChange={(e) => setSituacaoFiltro(e.target.value)}
+          >
+            <option value="">Todas</option>
+            <option value="falta">Falta</option>
+            <option value="excedente">Excedente</option>
+            <option value="igual">Igual</option>
+          </select>
+        </label>
+        <label className="filter-label">
+          Data de Entrega Real:
+          <input
+            type="date"
+            className="filter-input"
+            value={formatDateForInput(dataEntregaRealFiltro)}
+            onChange={(e) => setDataEntregaRealFiltro(formatDateForDisplay(e.target.value))}
+          />
+        </label>
+        <label className="filter-label">
+          Ordenar Por:
+          <select
+            className="filter-select"
+            value={sortConfig.key}
+            onChange={(e) => handleSort(e.target.value)}
+          >
+            <option value="">Selecione</option>
+            <option value="PercentualEntrega">Percentual de Entrega</option>
+            <option value="QuantidadeEntregue">Mais Excedentes</option>
+            <option value="Data de Previsão de Entrega">Data de Previsão</option>
+            <option value="DataEntregaReal">Data de Entrega Real</option>
+          </select>
+        </label>
+        <button className="reload-button" onClick={reloadData} disabled={loading}>
+          Recarregar Dados
+        </button>
+        <Link to="/resumo" state={{ combinedData }}>
+          <button className="summary-button">Ver Resumo</button>
+        </Link>
+      </div>
+
+      {/* Loading e Erro */}
+      {loading && (
+        <div className="loading">
+          Carregando... <progress />
+        </div>
+      )}
+      {error && <div className="error">{error}</div>}
+      {!loading && !error && (
+        <>
+          {/* Tabela de Dados */}
+          <table className="data-table">
+            <thead>
+              <tr>
+                {[
+                  'Código',
+                  'Produto',
+                  'Quantidade Prevista',
+                  'Data de Previsão',
+                  'Data de Entrega Real',
+                  'Entregue',
+                  'Percentual',
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="table-header"
+                    onClick={() => handleSort(header.toLowerCase().replace(/ /g, '_'))}
+                  >
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedData.map((row, index) => {
+                const dataPrevisao = parseDate(row['Data de Previsão de Entrega']);
+                const dataEntregaReal = parseDate(row.DataEntregaReal);
+                const diferenca = row.Diferenca; // Diferença entre entregue e previsto
+
+                // Ícone informativo com base na diferença
+                const statusIcon = () => {
+                  if (diferenca === 0) {
+                    return '✅'; // Entrega completa
+                  } else if (diferenca > 0) {
+                    return '✅'; // Excedente
+                  } else {
+                    return '❌'; // Falta
+                  }
+                };
+
+                return (
+                  <React.Fragment key={`${row.Codigo}-${row['Data de Previsão de Entrega']}-${index}`}>
+                    <tr className={getPercentualStyle(row.PercentualEntrega)}>
+                      <td>{row.Codigo}</td>
+                      <td>{row.Produto}</td>
+                      <td>{row['Quantidade Prevista']}</td>
+                      <td>{dataPrevisao ? format(dataPrevisao, 'dd/MM/yyyy') : 'N/A'}</td>
+                      <td className={dataEntregaReal && dataEntregaReal > dataPrevisao ? 'atrasado' : ''}>
+                        {dataEntregaReal ? format(dataEntregaReal, 'dd/MM/yyyy') : 'N/A'}
+                      </td>
+                      <td>{row.QuantidadeEntregue}</td>
+                      <td className={getPercentualStyle(row.PercentualEntrega)}>
+                        {row.PercentualEntrega}% {/* Exibe o percentual de entrega */}
+                      </td>
+                    </tr>
+                    {/* Gráfico abaixo da linha */}
+                    <tr>
+                      <td colSpan="7" style={{ padding: '10px 0' }}>
+                        <div style={{ width: '100%', height: '150px' }}>
+                          <Bar
+                            data={{
+                              labels: ['Previsto', 'Entregue'],
+                              datasets: [
+                                {
+                                  label: 'Valores',
+                                  data: [row['Quantidade Prevista'], row.QuantidadeEntregue],
+                                  backgroundColor: ['#f0ad4e', '#5cb85c'], // Amarelo para previsto, verde para entregue
+                                  borderColor: ['#f0ad4e', '#5cb85c'],
+                                  borderWidth: 1,
+                                },
+                              ],
+                            }}
+                            options={{
+                              indexAxis: 'y', // Define o gráfico como horizontal
+                              responsive: true,
+                              maintainAspectRatio: false, // Permite ajustar o tamanho manualmente
+                              plugins: {
+                                legend: {
+                                  display: false, // Oculta a legenda
+                                },
+                                tooltip: {
+                                  enabled: true,
+                                },
+                              },
+                              scales: {
+                                x: {
+                                  beginAtZero: true,
+                                  max: Math.max(
+                                    row['Quantidade Prevista'],
+                                    row.QuantidadeEntregue
+                                  ), // Valor máximo dinâmico
+                                },
+                                y: {
+                                  barPercentage: 0.8, // Ajusta a largura das barras
+                                  categoryPercentage: 0.8, // Ajusta o espaçamento entre as categorias
+                                },
+                              },
+                            }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Paginação */}
+          <ReactPaginate
+            previousLabel={'Anterior'}
+            nextLabel={'Próximo'}
+            breakLabel={'...'}
+            pageCount={pageCount}
+            marginPagesDisplayed={2}
+            pageRangeDisplayed={5}
+            onPageChange={handlePageClick}
+            containerClassName={'pagination'}
+            activeClassName={'active'}
+          />
+        </>
+      )}
+    </div>
+  );
+};
+
+export default Home;
