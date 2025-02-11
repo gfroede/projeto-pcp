@@ -1,0 +1,159 @@
+/* Estilos Gerais */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f9f9f9;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.title {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+
+.summary-panel {
+  display: flex;
+  justify-content: space-around;
+  background-color: #fff;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.summary-item {
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.action-button {
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.action-button:hover {
+  background-color: #0056b3;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.filter-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.filter-select,
+.filter-input {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.table-header {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.table-header:hover {
+  background-color: #0056b3;
+}
+
+td {
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+.percentual-red {
+  color: #cf0303; /* Vermelho escuro */
+  font-weight: bold;
+}
+
+.percentual-orange {
+  color: #fd9c26; /* Laranja */
+  font-weight: bold;
+}
+
+.percentual-green {
+  color: #2ac44e; /* Verde escuro */
+  font-weight: bold;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+
+.pagination a {
+  padding: 10px;
+  background-color: #007bff;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 5px;
+}
+
+.pagination .active {
+  background-color: #0056b3;
+}
+
+.loading {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.error {
+  text-align: center;
+  color: red;
+  margin: 20px 0;
+}
+
+.dark-mode {
+  background-color: #333;
+  color: #fff;
+}
+
+.dark-mode .summary-panel {
+  background-color: #444;
+}
+
+.dark-mode .action-button {
+  background-color: #ff9800;
+}
+
+.dark-mode .action-button:hover {
+  background-color: #e68a00;
+}
