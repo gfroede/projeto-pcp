@@ -157,3 +157,138 @@ td {
 .dark-mode .action-button:hover {
   background-color: #e68a00;
 }
+
+/* Estilização do Tooltip */
+.calendar-tooltip {
+  position: absolute;
+  background-color: #333;
+  color: #fff;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  z-index: 1000;
+  white-space: normal; /* Permite quebra de linha */
+  pointer-events: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  max-width: 300px; /* Limita a largura do tooltip */
+  word-wrap: break-word; /* Quebra palavras longas */
+}
+
+.calendar-event {
+  cursor: pointer;
+  text-align: center;
+  white-space: normal; /* Permite quebra de linha */
+}
+
+/* Destaque para dias com eventos */
+.has-event {
+  background-color: #e6f7ff; /* Cor de fundo suave para dias com eventos */
+}
+
+/* Estilização geral do calendário */
+.fc-daygrid-day-frame {
+  padding: 5px;
+}
+
+.fc-daygrid-day-number {
+  font-weight: bold;
+}
+
+.fc-event {
+  background-color: #007bff; /* Cor padrão para eventos */
+  color: #fff;
+  border-radius: 5px;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.fc-event:hover {
+  background-color: #0056b3; /* Efeito hover para eventos */
+}
+
+/* Estilização da lista de detalhes da data selecionada */
+.detalhes-data ul {
+  list-style-type: none; /* Remove os marcadores padrão da lista */
+  padding: 0;
+  margin: 0;
+}
+
+.detalhes-data li {
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: #f9f9f9; /* Fundo claro para cada item */
+  border-radius: 5px;
+  border: 1px solid #ddd; /* Borda sutil para separar os itens */
+  font-size: 0.9rem;
+  transition: background-color 0.3s ease; /* Efeito de transição suave */
+}
+
+.detalhes-data li:hover {
+  background-color: #e6f7ff; /* Cor de fundo ao passar o mouse */
+}
+
+.detalhes-data h2 {
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+/* Botão de ação */
+.action-button {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-bottom: 20px;
+}
+
+.action-button:hover {
+  background-color: #0056b3;
+}
+
+/* Contêiner para o cabeçalho */
+.header-container {
+  display: flex;
+  justify-content: space-between; /* Alinha o título à esquerda e o botão à direita */
+  align-items: center; /* Centraliza verticalmente */
+  margin-bottom: 20px; /* Espaçamento abaixo do cabeçalho */
+}
+
+/* Estilo específico para o botão "Recarregar Dados" */
+.reload-button {
+  background-color: #ff5722; /* Laranja chamativo */
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra para destaque */
+  transition: transform 0.2s ease-in-out, background-color 0.3s ease; /* Efeitos suaves */
+}
+
+.reload-button:hover {
+  background-color: #e64a19; /* Escurece ao passar o mouse */
+  transform: scale(1.5); /* Aumenta ligeiramente ao passar o mouse */
+}
+
+/* Estilo específico para o botão "Ver Calendario" */
+.calendar-button {
+  background-color: #1b8f2a; /* Laranja chamativo */
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra para destaque */
+  transition: transform 0.2s ease-in-out, background-color 0.3s ease; /* Efeitos suaves */
+}
+
+.calendar-button:hover {
+  background-color: #196b05; /* Escurece ao passar o mouse */
+  transform: scale(1.2); /* Aumenta ligeiramente ao passar o mouse */
+}

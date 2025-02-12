@@ -278,9 +278,27 @@ const Home = () => {
 
   // Função para exportar dados para Excel
   const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(dadosFiltrados);
+    // Certifique-se de que os dados estão no formato correto
+    const formattedData = dadosFiltrados.map((row) => ({
+      Código: row.Codigo,
+      Produto: row.Produto,
+      'Quantidade Prevista': row['Quantidade Prevista'],
+      'Data de Previsão': row['Data de Previsão de Entrega'],
+      'Data de Entrega Real': row.DataEntregaReal,
+      Entregue: row.QuantidadeEntregue,
+      Percentual: row.PercentualEntrega,
+    }));
+  
+    // Cria uma nova planilha
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+  
+    // Cria um novo workbook
     const workbook = XLSX.utils.book_new();
+  
+    // Adiciona a planilha ao workbook
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Dados Filtrados');
+  
+    // Exporta o arquivo Excel
     XLSX.writeFile(workbook, 'dados_filtrados.xlsx');
   };
 
@@ -314,9 +332,17 @@ const Home = () => {
   const totalExcedente = dadosFiltrados.reduce((acc, curr) => acc + Math.max(0, (curr.QuantidadeEntregue || 0) - (curr['Quantidade Prevista'] || 0)), 0);
 
   return (
-    <div className={`container ${darkMode ? 'dark-mode' : ''}`}>
-      {/* Título */}
-      <h1 className="title">Dados Compilados</h1>
+    <div className="container">
+      {/* Cabeçalho */}
+      <div className="header-container">
+        {/* Título */}
+        <h1 className="title">Controle PCP - Homologação</h1>
+  
+        {/* Botão Recarregar Dados */}
+        <button className="reload-button" onClick={reloadData}>
+          Recarregar Dados
+        </button>
+      </div>
 
       {/* Painel de Resumo */}
       <div className="summary-panel">
@@ -433,11 +459,9 @@ const Home = () => {
             <option value="DataEntregaReal">Data de Entrega Real</option>
           </select>
         </label>
-        <button className="reload-button" onClick={reloadData} disabled={loading}>
-          Recarregar Dados
-        </button>
+
         <Link to="/resumo" state={{ combinedData }}>
-          <button className="summary-button">Ver Resumo</button>
+          <button className="calendar-button">Ver Calendário</button>
         </Link>
       </div>
 
