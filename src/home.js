@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import axiosRetry from 'axios-retry';
 import Papa from 'papaparse';
 import { useNavigate, Link } from 'react-router-dom';
 import { Bar } from 'react-chartjs-2';
@@ -13,7 +14,7 @@ import {
 } from 'chart.js';
 import ReactPaginate from 'react-paginate';
 import * as XLSX from 'xlsx';
-import { format, parse } from 'date-fns'; // Importa funções do date-fns
+import { format } from 'date-fns'; // Importa a função format do date-fns
 import './App.css';
 
 // Registra os componentes necessários do Chart.js
@@ -35,25 +36,11 @@ const Home = () => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' }); // Ordenação
   const navigate = useNavigate();
 
-  // Função para converter yyyy-MM-dd para dd/mm/yyyy
-  const formatDateForDisplay = (dateString) => {
-    if (!dateString) return '';
-    const [year, month, day] = dateString.split('-');
-    return `${day}/${month}/${year}`;
-  };
-
-  // Função para converter dd/mm/yyyy para yyyy-MM-dd
-  const formatDateForInput = (dateString) => {
-    if (!dateString) return '';
-    const [day, month, year] = dateString.split('/');
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-  };
-
-  // Função para converter datas no formato dd/mm/yyyy para um objeto Date
+  // Função para converter datas no formato dd/mm/aaaa para um objeto Date
   const parseDate = (dateString) => {
     if (!dateString) return null;
-    const [day, month, year] = dateString.split('/').map(Number);
-    return new Date(year, month - 1, day);
+    const [day, month, year] = dateString.split('/').map(Number); // Converte os valores para números
+    return new Date(year, month - 1, day); // Cria a data no fuso horário local
   };
 
   // Função genérica para buscar dados de uma planilha
@@ -227,6 +214,15 @@ const Home = () => {
       });
     }
 
+    // Ordenação alfabética para produtos na busca customizada
+    if (periodoFiltro === 'customizado') {
+      filtrados.sort((a, b) => {
+        const produtoA = a.Produto || '';
+        const produtoB = b.Produto || '';
+        return produtoA.localeCompare(produtoB); // Ordena em ordem alfabética
+      });
+    }
+
     return filtrados;
   }, [combinedData, periodoFiltro, dataInicio, dataFim, produtoFiltro, situacaoFiltro, dataEntregaRealFiltro, sortConfig]);
 
@@ -270,15 +266,14 @@ const Home = () => {
     return 'percentual-green'; // Verde acima de 91%
   };
 
-  // Função para alternar o modo escuro
-  const toggleDarkMode = () => {
+   // Função para alternar o modo escuro
+   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
     document.body.classList.toggle('dark-mode', !darkMode);
   };
 
   // Função para exportar dados para Excel
   const exportToExcel = () => {
-    // Certifique-se de que os dados estão no formato correto
     const formattedData = dadosFiltrados.map((row) => ({
       Código: row.Codigo,
       Produto: row.Produto,
@@ -288,17 +283,10 @@ const Home = () => {
       Entregue: row.QuantidadeEntregue,
       Percentual: row.PercentualEntrega,
     }));
-  
-    // Cria uma nova planilha
+
     const worksheet = XLSX.utils.json_to_sheet(formattedData);
-  
-    // Cria um novo workbook
     const workbook = XLSX.utils.book_new();
-  
-    // Adiciona a planilha ao workbook
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Dados Filtrados');
-  
-    // Exporta o arquivo Excel
     XLSX.writeFile(workbook, 'dados_filtrados.xlsx');
   };
 
@@ -332,17 +320,9 @@ const Home = () => {
   const totalExcedente = dadosFiltrados.reduce((acc, curr) => acc + Math.max(0, (curr.QuantidadeEntregue || 0) - (curr['Quantidade Prevista'] || 0)), 0);
 
   return (
-    <div className="container">
-      {/* Cabeçalho */}
-      <div className="header-container">
-        {/* Título */}
-        <h1 className="title">Controle PCP - Homologação</h1>
-  
-        {/* Botão Recarregar Dados */}
-        <button className="reload-button" onClick={reloadData}>
-          Recarregar Dados
-        </button>
-      </div>
+    <div className={`container ${darkMode ? 'dark-mode' : ''}`}>
+      {/* Título */}
+      <h1 className="title">Dados Compilados</h1>
 
       {/* Painel de Resumo */}
       <div className="summary-panel">
@@ -393,8 +373,8 @@ const Home = () => {
               <input
                 type="date"
                 className="filter-input"
-                value={formatDateForInput(dataInicio)}
-                onChange={(e) => setDataInicio(formatDateForDisplay(e.target.value))}
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
               />
             </label>
             <label className="filter-label">
@@ -402,8 +382,8 @@ const Home = () => {
               <input
                 type="date"
                 className="filter-input"
-                value={formatDateForInput(dataFim)}
-                onChange={(e) => setDataFim(formatDateForDisplay(e.target.value))}
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
               />
             </label>
           </div>
@@ -441,8 +421,8 @@ const Home = () => {
           <input
             type="date"
             className="filter-input"
-            value={formatDateForInput(dataEntregaRealFiltro)}
-            onChange={(e) => setDataEntregaRealFiltro(formatDateForDisplay(e.target.value))}
+            value={dataEntregaRealFiltro}
+            onChange={(e) => setDataEntregaRealFiltro(e.target.value)}
           />
         </label>
         <label className="filter-label">
@@ -459,9 +439,11 @@ const Home = () => {
             <option value="DataEntregaReal">Data de Entrega Real</option>
           </select>
         </label>
-
+        <button className="reload-button" onClick={reloadData} disabled={loading}>
+          Recarregar Dados
+        </button>
         <Link to="/resumo" state={{ combinedData }}>
-          <button className="calendar-button">Ver Calendário</button>
+          <button className="summary-button">Ver Resumo</button>
         </Link>
       </div>
 
@@ -525,9 +507,7 @@ const Home = () => {
                         {dataEntregaReal ? format(dataEntregaReal, 'dd/MM/yyyy') : 'N/A'}
                       </td>
                       <td>{row.QuantidadeEntregue}</td>
-                      <td className={getPercentualStyle(row.PercentualEntrega)}>
-                        {row.PercentualEntrega}% {/* Exibe o percentual de entrega */}
-                      </td>
+                      <td>{row.PercentualEntrega}%</td>
                     </tr>
                     {/* Gráfico abaixo da linha */}
                     <tr>
