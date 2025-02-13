@@ -88,7 +88,7 @@ const Resumo = () => {
   return (
     <div className="container">
       {/* Botão para voltar à tela anterior */}
-      <Link to="/">
+      <Link to="/home">
         <button className="action-button">Voltar</button>
       </Link>
       <h1>Calendário Previsão de Entrega</h1>

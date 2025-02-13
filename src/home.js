@@ -16,6 +16,7 @@ import ReactPaginate from 'react-paginate';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns'; // Importa a função format do date-fns
 import './App.css';
+import { getUserActivated } from './user-validate'; 
 
 // Registra os componentes necessários do Chart.js
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
