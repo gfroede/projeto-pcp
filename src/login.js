@@ -2,7 +2,19 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Papa from 'papaparse';
 import { useNavigate } from 'react-router-dom';
-import { setUserActivated } from './user-validate'; // Importa setUserActivated
+import { setUserActivated } from './user-validate';
+
+// Componentes do Material UI
+import {
+  Container,
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  CircularProgress,
+  Alert,
+} from '@mui/material';
 
 const Login = () => {
   const [users, setUsers] = useState([]);
@@ -44,7 +56,7 @@ const Login = () => {
     }
   };
 
-  // Carregar os dados ao montar o componente
+  // Carrega os dados ao montar o componente
   useEffect(() => {
     fetchUserData();
   }, []);
@@ -66,59 +78,71 @@ const Login = () => {
     );
 
     if (foundUser) {
-      // Define o usuário ativo usando setUserActivated
+      // Define o usuário ativo
       setUserActivated(foundUser);
-
-      // Redirecionar para /home em caso de sucesso
+      // Redireciona para /home em caso de sucesso
       navigate('/home');
     } else {
-      // Mostrar mensagem de erro se as credenciais forem inválidas
       setValidationError('Usuário ou senha incorretos.');
     }
   };
 
-  // Função para atualizar os campos do formulário
+  // Atualiza os campos do formulário
   const handleChange = (e) => {
     const { name, value } = e.target;
     setCredentials((prev) => ({ ...prev, [name]: value }));
   };
 
   return (
-    <div className="login-container">
-      <h2>Login</h2>
-      {loading ? (
-        <p>Carregando...</p>
-      ) : error ? (
-        <p>{error}</p>
-      ) : (
-        <form onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="user">Usuário:</label>
-            <input
-              type="text"
-              id="user"
+    <Container maxWidth="sm" sx={{ mt: 8 }}>
+      <Paper elevation={3} sx={{ p: 4 }}>
+        <Typography variant="h4" component="h1" align="center" gutterBottom>
+          Login
+        </Typography>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : error ? (
+          <Alert severity="error">{error}</Alert>
+        ) : (
+          <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 2 }}>
+            <TextField
+              label="Usuário"
               name="user"
               value={credentials.user}
               onChange={handleChange}
+              fullWidth
+              margin="normal"
               required
             />
-          </div>
-          <div>
-            <label htmlFor="password">Senha:</label>
-            <input
-              type="password"
-              id="password"
+            <TextField
+              label="Senha"
               name="password"
+              type="password"
               value={credentials.password}
               onChange={handleChange}
+              fullWidth
+              margin="normal"
               required
             />
-          </div>
-          {validationError && <p className="error">{validationError}</p>}
-          <button type="submit">Entrar</button>
-        </form>
-      )}
-    </div>
+            {validationError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {validationError}
+              </Alert>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              sx={{ mt: 3 }}
+            >
+              Entrar
+            </Button>
+          </Box>
+        )}
+      </Paper>
+    </Container>
   );
 };
 

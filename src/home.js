@@ -9,17 +9,35 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Legend,
 } from 'chart.js';
 import ReactPaginate from 'react-paginate';
 import * as XLSX from 'xlsx';
-import { format } from 'date-fns'; // Importa a função format do date-fns
+import { format } from 'date-fns';
 import './App.css';
-import { getUserActivated } from './user-validate'; 
+import { getUserActivated } from './user-validate';
 
-// Registra os componentes necessários do Chart.js
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+// Componentes do Material UI
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Card,
+  CardContent,
+  Grid,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Button as MUIButton,
+  CircularProgress,
+  Tooltip,
+} from '@mui/material';
+
+// Registra os componentes necessários do ChartJS
+ChartJS.register(CategoryScale, LinearScale, BarElement, ChartTooltip, Legend);
 
 const Home = () => {
   const [previsaoData, setPrevisaoData] = useState([]);
@@ -31,20 +49,32 @@ const Home = () => {
   const [dataFim, setDataFim] = useState('');
   const [produtoFiltro, setProdutoFiltro] = useState('');
   const [situacaoFiltro, setSituacaoFiltro] = useState('');
-  const [dataEntregaRealFiltro, setDataEntregaRealFiltro] = useState('');
+  // Removido o filtro de "Data de Entrega Real"
   const [darkMode, setDarkMode] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0); // Paginação
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' }); // Ordenação
+  const [currentPage, setCurrentPage] = useState(0);
+  // sortConfig armazena a chave de ordenação, o valor exibido e a direção
+  const [sortConfig, setSortConfig] = useState({ key: '', display: '', direction: 'asc' });
   const navigate = useNavigate();
 
-  // Função para converter datas no formato dd/mm/aaaa para um objeto Date
-  const parseDate = (dateString) => {
-    if (!dateString) return null;
-    const [day, month, year] = dateString.split('/').map(Number); // Converte os valores para números
-    return new Date(year, month - 1, day); // Cria a data no fuso horário local
+  // Mapeamento de exibição (header) para a chave real dos dados
+  const sortKeyMapping = {
+    'Código': 'Codigo',
+    'Produto': 'Produto',
+    'Quantidade Prevista': 'Quantidade Prevista',
+    'Data de Previsão': 'Data de Previsão de Entrega',
+    'Data de Entrega Real': 'DataEntregaReal',
+    'Entregue': 'QuantidadeEntregue',
+    'Percentual': 'PercentualEntrega',
   };
 
-  // Função genérica para buscar dados de uma planilha
+  // Função para converter datas do formato dd/mm/aaaa para objeto Date
+  const parseDate = (dateString) => {
+    if (!dateString) return null;
+    const [day, month, year] = dateString.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  // Função para buscar dados de uma planilha via CSV
   const fetchSheetData = async (url, setData) => {
     try {
       const response = await axios.get(url);
@@ -74,10 +104,22 @@ const Home = () => {
     }
   };
 
-  // Combinar os dados das abas Previsão e Entrega
+  // Combina os dados das abas Previsão e Entrega
   const combinedData = useMemo(() => {
-    if (!previsaoData.length || !entregaData.length) return [];
-    return previsaoData.map((previsaoItem) => {
+    if (!previsaoData.length && !entregaData.length) return [];
+
+    // Cria um mapa com chave: Código + Data de Previsão
+    const previsaoMap = new Map();
+    previsaoData.forEach((item) => {
+      const key = `${item.Codigo}-${item['Data de Previsão de Entrega']}`;
+      previsaoMap.set(key, item);
+    });
+
+    let combined = [];
+
+    // Adiciona itens da aba Previsão e calcula entregas correspondentes
+    previsaoData.forEach((previsaoItem) => {
+      const key = `${previsaoItem.Codigo}-${previsaoItem['Data de Previsão de Entrega']}`;
       const entregas = entregaData.filter(
         (item) =>
           item.Codigo === previsaoItem.Codigo &&
@@ -87,30 +129,46 @@ const Home = () => {
         (acc, curr) => acc + (curr['Quantidade Entregue'] || 0),
         0
       );
-      const diferenca = (quantidadeEntregue || 0) - (previsaoItem['Quantidade Prevista'] || 0);
-      const percentualEntrega =
-        ((quantidadeEntregue || 0) / (previsaoItem['Quantidade Prevista'] || 1)) * 100;
-
-      // Obter a data de entrega real (se disponível)
+      const diferenca = quantidadeEntregue - (previsaoItem['Quantidade Prevista'] || 0);
+      const percentualEntrega = ((quantidadeEntregue / (previsaoItem['Quantidade Prevista'] || 1)) * 100).toFixed(2);
       const dataEntregaReal = entregas.length > 0 ? entregas[0]['Data de Entrega Real'] : null;
 
-      return {
+      combined.push({
         ...previsaoItem,
         QuantidadeEntregue: quantidadeEntregue,
-        Diferenca: diferenca, // Armazena a diferença (positiva ou negativa)
-        PercentualEntrega: percentualEntrega.toFixed(2), // Percentual de entrega com duas casas decimais
-        DataEntregaReal: dataEntregaReal, // Adiciona a data de entrega real
-      };
+        Diferenca: diferenca,
+        PercentualEntrega: percentualEntrega,
+        DataEntregaReal: dataEntregaReal,
+      });
     });
+
+    // Adiciona itens que estão apenas na aba Entrega (sem previsão)
+    entregaData.forEach((entregaItem) => {
+      const possivelChave = `${entregaItem.Codigo}-${entregaItem['Data Referente (Planejada)']}`;
+      if (!previsaoMap.has(possivelChave)) {
+        combined.push({
+          Codigo: entregaItem.Codigo,
+          Produto: entregaItem.Produto,
+          'Quantidade Prevista': 0,
+          'Data de Previsão de Entrega': null,
+          QuantidadeEntregue: entregaItem['Quantidade Entregue'] || 0,
+          Diferenca: entregaItem['Quantidade Entregue'] || 0,
+          PercentualEntrega: '100.00',
+          DataEntregaReal: entregaItem['Data de Entrega Real'] || null,
+        });
+      }
+    });
+
+    return combined;
   }, [previsaoData, entregaData]);
 
-  // Lista de produtos únicos para o filtro
+  // Lista de produtos únicos ordenados alfabeticamente
   const produtosUnicos = useMemo(() => {
-    const produtos = combinedData.map((item) => item.Produto);
-    return [...new Set(produtos)];
+    const produtos = [...new Set(combinedData.map((item) => item.Produto))];
+    return produtos.sort((a, b) => a.localeCompare(b));
   }, [combinedData]);
 
-  // Função para aplicar os filtros
+  // Aplica os filtros selecionados (removemos o filtro de Data de Entrega Real)
   const dadosFiltrados = useMemo(() => {
     if (!combinedData.length) return [];
     let filtrados = combinedData;
@@ -118,7 +176,7 @@ const Home = () => {
     // Filtro por período
     const hoje = new Date();
     switch (periodoFiltro) {
-      case '30_dias':
+      case '30_dias': {
         const trintaDiasAtras = new Date();
         trintaDiasAtras.setDate(hoje.getDate() - 30);
         filtrados = filtrados.filter((item) => {
@@ -126,7 +184,8 @@ const Home = () => {
           return dataPrevisao >= trintaDiasAtras && dataPrevisao <= hoje;
         });
         break;
-      case 'proximos_30_dias':
+      }
+      case 'proximos_30_dias': {
         const proximosTrintaDias = new Date();
         proximosTrintaDias.setDate(hoje.getDate() + 30);
         filtrados = filtrados.filter((item) => {
@@ -134,7 +193,8 @@ const Home = () => {
           return dataPrevisao >= hoje && dataPrevisao <= proximosTrintaDias;
         });
         break;
-      case 'mes_passado':
+      }
+      case 'mes_passado': {
         const primeiroDiaMesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
         const ultimoDiaMesPassado = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
         filtrados = filtrados.filter((item) => {
@@ -142,7 +202,8 @@ const Home = () => {
           return dataPrevisao >= primeiroDiaMesPassado && dataPrevisao <= ultimoDiaMesPassado;
         });
         break;
-      case 'mes_atual':
+      }
+      case 'mes_atual': {
         const primeiroDiaMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
         const ultimoDiaMesAtual = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
         filtrados = filtrados.filter((item) => {
@@ -150,7 +211,8 @@ const Home = () => {
           return dataPrevisao >= primeiroDiaMesAtual && dataPrevisao <= ultimoDiaMesAtual;
         });
         break;
-      case 'customizado':
+      }
+      case 'customizado': {
         if (dataInicio && dataFim) {
           const inicio = parseDate(dataInicio);
           const fim = parseDate(dataFim);
@@ -160,16 +222,17 @@ const Home = () => {
           });
         }
         break;
+      }
       default:
         break;
     }
 
-    // Filtro por nome do produto
+    // Filtro por produto
     if (produtoFiltro) {
       filtrados = filtrados.filter((item) => item.Produto === produtoFiltro);
     }
 
-    // Filtro por situação (falta, excedente, igual)
+    // Filtro por situação
     if (situacaoFiltro === 'falta') {
       filtrados = filtrados.filter((item) => item.Diferenca < 0);
     } else if (situacaoFiltro === 'excedente') {
@@ -178,18 +241,9 @@ const Home = () => {
       filtrados = filtrados.filter((item) => item.Diferenca === 0);
     }
 
-    // Filtro por data de entrega real
-    if (dataEntregaRealFiltro) {
-      const dataEntregaReal = parseDate(dataEntregaRealFiltro);
-      filtrados = filtrados.filter((item) => {
-        const dataEntregaRealItem = parseDate(item.DataEntregaReal);
-        return dataEntregaRealItem && dataEntregaRealItem.getTime() === dataEntregaReal.getTime();
-      });
-    }
-
-    // Ordenação
+    // Ordenação: cria uma cópia para ordenar e não mutar o array original
     if (sortConfig.key) {
-      filtrados.sort((a, b) => {
+      filtrados = [...filtrados].sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
 
@@ -215,17 +269,8 @@ const Home = () => {
       });
     }
 
-    // Ordenação alfabética para produtos na busca customizada
-    if (periodoFiltro === 'customizado') {
-      filtrados.sort((a, b) => {
-        const produtoA = a.Produto || '';
-        const produtoB = b.Produto || '';
-        return produtoA.localeCompare(produtoB); // Ordena em ordem alfabética
-      });
-    }
-
     return filtrados;
-  }, [combinedData, periodoFiltro, dataInicio, dataFim, produtoFiltro, situacaoFiltro, dataEntregaRealFiltro, sortConfig]);
+  }, [combinedData, periodoFiltro, dataInicio, dataFim, produtoFiltro, situacaoFiltro, sortConfig]);
 
   // Função para recarregar os dados
   const reloadData = async () => {
@@ -250,30 +295,23 @@ const Home = () => {
     }
   };
 
-  // Carregar dados ao montar o componente
+  // Carrega os dados ao montar o componente
   useEffect(() => {
     reloadData();
   }, []);
 
-  // Navegação para a página de resumo
+  // Navega para a página de resumo
   const handleNavigateToResumo = () => {
     navigate('/resumo', { state: { combinedData } });
   };
 
-  // Função para estilizar a célula de percentual de entrega
-  const getPercentualStyle = (percentual) => {
-    if (percentual < 40) return 'percentual-red'; // Vermelho se abaixo de 40%
-    if (percentual >= 40 && percentual <= 90) return 'percentual-orange'; // Laranja entre 41% e 90%
-    return 'percentual-green'; // Verde acima de 91%
-  };
-
-   // Função para alternar o modo escuro
-   const toggleDarkMode = () => {
+  // Alterna o modo escuro
+  const toggleDarkMode = () => {
     setDarkMode(!darkMode);
     document.body.classList.toggle('dark-mode', !darkMode);
   };
 
-  // Função para exportar dados para Excel
+  // Exporta os dados para Excel
   const exportToExcel = () => {
     const formattedData = dadosFiltrados.map((row) => ({
       Código: row.Codigo,
@@ -291,17 +329,17 @@ const Home = () => {
     XLSX.writeFile(workbook, 'dados_filtrados.xlsx');
   };
 
-  // Função para lidar com a ordenação
-  const handleSort = (key) => {
+  // Função para tratar a ordenação (recebe o data key e o valor de exibição)
+  const handleSort = (dataKey, displayName) => {
     let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+    if (sortConfig.key === dataKey && sortConfig.direction === 'asc') {
       direction = 'desc';
     }
-    setSortConfig({ key, direction });
+    setSortConfig({ key: dataKey, display: displayName, direction });
   };
 
   // Configuração da paginação
-  const itemsPerPage = 10; // Número de itens por página
+  const itemsPerPage = 10;
   const pageCount = Math.ceil(dadosFiltrados.length / itemsPerPage);
   const paginatedData = useMemo(() => {
     const start = currentPage * itemsPerPage;
@@ -309,7 +347,6 @@ const Home = () => {
     return dadosFiltrados.slice(start, end);
   }, [dadosFiltrados, currentPage]);
 
-  // Função para mudar de página
   const handlePageClick = ({ selected }) => {
     setCurrentPage(selected);
   };
@@ -322,142 +359,200 @@ const Home = () => {
 
   return (
     <div className={`container ${darkMode ? 'dark-mode' : ''}`}>
-      {/* Título */}
-      <h1 className="title">Dados Compilados</h1>
+      {/* Cabeçalho com AppBar */}
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Controle - PCP
+          </Typography>
+          <MUIButton color="inherit" onClick={toggleDarkMode}>
+            {darkMode ? 'Modo Claro' : 'Modo Escuro'}
+          </MUIButton>
+        </Toolbar>
+      </AppBar>
 
       {/* Painel de Resumo */}
-      <div className="summary-panel">
-        <div className="summary-item">
-          <strong>Total Previsto:</strong> {totalPrevisto}
-        </div>
-        <div className="summary-item">
-          <strong>Total Entregue:</strong> {totalEntregue}
-        </div>
-        <div className="summary-item">
-          <strong>Falta:</strong> {totalFalta}
-        </div>
-        <div className="summary-item">
-          <strong>Excedente:</strong> {totalExcedente}
-        </div>
-      </div>
+      <Card sx={{ marginTop: 3, marginBottom: 3 }}>
+        <CardContent>
+          <Grid container spacing={2} justifyContent="center">
+            <Grid item xs={6} sm={3}>
+              <Typography variant="h6" align="center">Total Previsto</Typography>
+              <Typography variant="subtitle1" align="center">{totalPrevisto}</Typography>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Typography variant="h6" align="center">Total Entregue</Typography>
+              <Typography variant="subtitle1" align="center">{totalEntregue}</Typography>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Typography variant="h6" align="center">Falta</Typography>
+              <Typography variant="subtitle1" align="center">{totalFalta}</Typography>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Typography variant="h6" align="center">Excedente</Typography>
+              <Typography variant="subtitle1" align="center">{totalExcedente}</Typography>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       {/* Botões de Ação */}
-      <div className="actions">
-        <button className="action-button" onClick={toggleDarkMode}>
-          {darkMode ? 'Modo Claro' : 'Modo Escuro'}
-        </button>
-        <button className="action-button" onClick={exportToExcel}>
-          Exportar para Excel
-        </button>
-      </div>
+      <Grid container spacing={2} justifyContent="center" sx={{ marginBottom: 3 }}>
+        <Grid item>
+        <MUIButton
+  variant="contained"
+  onClick={reloadData}
+  disabled={loading}
+  sx={{
+    backgroundColor: '#28AA04', // cor personalizada somente para este botão
+    '&:hover': {
+      backgroundColor: '##3AEE08'
+    }
+  }}
+>
+  Exportar para Excel
+</MUIButton>
+        </Grid>
+        <Grid item>
+          <Link to="/resumo" state={{ combinedData }} style={{ textDecoration: 'none' }}>
+            <MUIButton variant="contained">
+              CALENDÁRIO
+            </MUIButton>
+          </Link>
+        </Grid>
+        <Grid item>
+        <MUIButton
+  variant="contained"
+  onClick={reloadData}
+  disabled={loading}
+  sx={{
+    backgroundColor: '#FF5722', // cor personalizada somente para este botão
+    '&:hover': {
+      backgroundColor: '#E64A19'
+    }
+  }}
+>
+  Recarregar Dados
+</MUIButton>
+        </Grid>
+      </Grid>
 
-      {/* Filtros */}
-      <div className="filters">
-        <label className="filter-label">
-          Período:
-          <select
-            className="filter-select"
-            value={periodoFiltro}
-            onChange={(e) => setPeriodoFiltro(e.target.value)}
-          >
-            <option value="30_dias">Últimos 30 dias</option>
-            <option value="proximos_30_dias">Próximos 30 dias</option>
-            <option value="mes_passado">Mês Passado</option>
-            <option value="mes_atual">Mês Atual</option>
-            <option value="customizado">Intervalo Customizado</option>
-          </select>
-        </label>
-        {periodoFiltro === 'customizado' && (
-          <div className="date-range">
-            <label className="filter-label">
-              Data Início:
-              <input
-                type="date"
-                className="filter-input"
-                value={dataInicio}
-                onChange={(e) => setDataInicio(e.target.value)}
-              />
-            </label>
-            <label className="filter-label">
-              Data Fim:
-              <input
-                type="date"
-                className="filter-input"
-                value={dataFim}
-                onChange={(e) => setDataFim(e.target.value)}
-              />
-            </label>
-          </div>
-        )}
-        <label className="filter-label">
-          Produto:
-          <select
-            className="filter-select"
-            value={produtoFiltro}
-            onChange={(e) => setProdutoFiltro(e.target.value)}
-          >
-            <option value="">Todos</option>
-            {produtosUnicos.map((produto) => (
-              <option key={produto} value={produto}>
-                {produto}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="filter-label">
-          Situação:
-          <select
-            className="filter-select"
-            value={situacaoFiltro}
-            onChange={(e) => setSituacaoFiltro(e.target.value)}
-          >
-            <option value="">Todas</option>
-            <option value="falta">Falta</option>
-            <option value="excedente">Excedente</option>
-            <option value="igual">Igual</option>
-          </select>
-        </label>
-        <label className="filter-label">
-          Data de Entrega Real:
-          <input
-            type="date"
-            className="filter-input"
-            value={dataEntregaRealFiltro}
-            onChange={(e) => setDataEntregaRealFiltro(e.target.value)}
-          />
-        </label>
-        <label className="filter-label">
-          Ordenar Por:
-          <select
-            className="filter-select"
-            value={sortConfig.key}
-            onChange={(e) => handleSort(e.target.value)}
-          >
-            <option value="">Selecione</option>
-            <option value="PercentualEntrega">Percentual de Entrega</option>
-            <option value="QuantidadeEntregue">Mais Excedentes</option>
-            <option value="Data de Previsão de Entrega">Data de Previsão</option>
-            <option value="DataEntregaReal">Data de Entrega Real</option>
-          </select>
-        </label>
-        <button className="reload-button" onClick={reloadData} disabled={loading}>
-          Recarregar Dados
-        </button>
-        <Link to="/resumo" state={{ combinedData }}>
-          <button className="summary-button">Ver Resumo</button>
-        </Link>
-      </div>
+      {/* Filtros em Card */}
+      <Card sx={{ marginBottom: 3 }}>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={4} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Período</InputLabel>
+                <Select
+                  label="Período"
+                  value={periodoFiltro}
+                  onChange={(e) => setPeriodoFiltro(e.target.value)}
+                >
+                  <MenuItem value="30_dias">Últimos 30 dias</MenuItem>
+                  <MenuItem value="proximos_30_dias">Próximos 30 dias</MenuItem>
+                  <MenuItem value="mes_passado">Mês Passado</MenuItem>
+                  <MenuItem value="mes_atual">Mês Atual</MenuItem>
+                  <MenuItem value="customizado">Intervalo Customizado</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            {periodoFiltro === 'customizado' && (
+              <>
+                <Grid item xs={12} sm={4} md={3}>
+                  <TextField
+                    label="Data Início"
+                    type="date"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    value={dataInicio}
+                    onChange={(e) => setDataInicio(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4} md={3}>
+                  <TextField
+                    label="Data Fim"
+                    type="date"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    value={dataFim}
+                    onChange={(e) => setDataFim(e.target.value)}
+                  />
+                </Grid>
+              </>
+            )}
+            <Grid item xs={12} sm={4} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Produto</InputLabel>
+                <Select
+                  label="Produto"
+                  value={produtoFiltro}
+                  onChange={(e) => setProdutoFiltro(e.target.value)}
+                >
+                  <MenuItem value="">Todos</MenuItem>
+                  {produtosUnicos.map((produto) => (
+                    <MenuItem key={produto} value={produto}>
+                      {produto}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={4} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Situação</InputLabel>
+                <Select
+                  label="Situação"
+                  value={situacaoFiltro}
+                  onChange={(e) => setSituacaoFiltro(e.target.value)}
+                >
+                  <MenuItem value="">Todas</MenuItem>
+                  <MenuItem value="falta">Falta</MenuItem>
+                  <MenuItem value="excedente">Excedente</MenuItem>
+                  <MenuItem value="igual">Igual</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={4} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Ordenar Por</InputLabel>
+                {/* As opções são exatamente iguais aos cabeçalhos */}
+                <Select
+                  label="Ordenar Por"
+                  value={sortConfig.display}
+                  onChange={(e) =>
+                    handleSort(sortKeyMapping[e.target.value], e.target.value)
+                  }
+                >
+                  <MenuItem value="">Selecione</MenuItem>
+                  <MenuItem value="Código">Código</MenuItem>
+                  <MenuItem value="Produto">Produto</MenuItem>
+                  <MenuItem value="Quantidade Prevista">Quantidade Prevista</MenuItem>
+                  <MenuItem value="Data de Previsão">Data de Previsão</MenuItem>
+                  <MenuItem value="Data de Entrega Real">Data de Entrega Real</MenuItem>
+                  <MenuItem value="Entregue">Entregue</MenuItem>
+                  <MenuItem value="Percentual">Percentual</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       {/* Loading e Erro */}
       {loading && (
-        <div className="loading">
-          Carregando... <progress />
-        </div>
+        <Grid container justifyContent="center" sx={{ marginY: 3 }}>
+          <CircularProgress />
+        </Grid>
       )}
-      {error && <div className="error">{error}</div>}
+      {error && (
+        <Typography align="center" color="error" sx={{ marginY: 3 }}>
+          {error}
+        </Typography>
+      )}
+
+      {/* Tabela de Dados */}
       {!loading && !error && (
         <>
-          {/* Tabela de Dados */}
           <table className="data-table">
             <thead>
               <tr>
@@ -470,13 +565,14 @@ const Home = () => {
                   'Entregue',
                   'Percentual',
                 ].map((header) => (
-                  <th
-                    key={header}
-                    className="table-header"
-                    onClick={() => handleSort(header.toLowerCase().replace(/ /g, '_'))}
-                  >
-                    {header}
-                  </th>
+                  <Tooltip key={header} title="Clique para ordenar" arrow>
+                    <th
+                      className="table-header"
+                      onClick={() => handleSort(sortKeyMapping[header], header)}
+                    >
+                      {header}
+                    </th>
+                  </Tooltip>
                 ))}
               </tr>
             </thead>
@@ -484,33 +580,19 @@ const Home = () => {
               {paginatedData.map((row, index) => {
                 const dataPrevisao = parseDate(row['Data de Previsão de Entrega']);
                 const dataEntregaReal = parseDate(row.DataEntregaReal);
-                const diferenca = row.Diferenca; // Diferença entre entregue e previsto
-
-                // Ícone informativo com base na diferença
-                const statusIcon = () => {
-                  if (diferenca === 0) {
-                    return '✅'; // Entrega completa
-                  } else if (diferenca > 0) {
-                    return '✅'; // Excedente
-                  } else {
-                    return '❌'; // Falta
-                  }
-                };
-
                 return (
                   <React.Fragment key={`${row.Codigo}-${row['Data de Previsão de Entrega']}-${index}`}>
-                    <tr className={getPercentualStyle(row.PercentualEntrega)}>
+                    <tr className={row.PercentualEntrega < 40 ? 'percentual-red' : row.PercentualEntrega >= 40 && row.PercentualEntrega <= 90 ? 'percentual-orange' : 'percentual-green'}>
                       <td>{row.Codigo}</td>
                       <td>{row.Produto}</td>
                       <td>{row['Quantidade Prevista']}</td>
                       <td>{dataPrevisao ? format(dataPrevisao, 'dd/MM/yyyy') : 'N/A'}</td>
-                      <td className={dataEntregaReal && dataEntregaReal > dataPrevisao ? 'atrasado' : ''}>
+                      <td className={dataEntregaReal && dataPrevisao && dataEntregaReal > dataPrevisao ? 'atrasado' : ''}>
                         {dataEntregaReal ? format(dataEntregaReal, 'dd/MM/yyyy') : 'N/A'}
                       </td>
                       <td>{row.QuantidadeEntregue}</td>
                       <td>{row.PercentualEntrega}%</td>
                     </tr>
-                    {/* Gráfico abaixo da linha */}
                     <tr>
                       <td colSpan="7" style={{ padding: '10px 0' }}>
                         <div style={{ width: '100%', height: '150px' }}>
@@ -521,23 +603,19 @@ const Home = () => {
                                 {
                                   label: 'Valores',
                                   data: [row['Quantidade Prevista'], row.QuantidadeEntregue],
-                                  backgroundColor: ['#f0ad4e', '#5cb85c'], // Amarelo para previsto, verde para entregue
+                                  backgroundColor: ['#f0ad4e', '#5cb85c'],
                                   borderColor: ['#f0ad4e', '#5cb85c'],
                                   borderWidth: 1,
                                 },
                               ],
                             }}
                             options={{
-                              indexAxis: 'y', // Define o gráfico como horizontal
+                              indexAxis: 'y',
                               responsive: true,
-                              maintainAspectRatio: false, // Permite ajustar o tamanho manualmente
+                              maintainAspectRatio: false,
                               plugins: {
-                                legend: {
-                                  display: false, // Oculta a legenda
-                                },
-                                tooltip: {
-                                  enabled: true,
-                                },
+                                legend: { display: false },
+                                tooltip: { enabled: true },
                               },
                               scales: {
                                 x: {
@@ -545,11 +623,11 @@ const Home = () => {
                                   max: Math.max(
                                     row['Quantidade Prevista'],
                                     row.QuantidadeEntregue
-                                  ), // Valor máximo dinâmico
+                                  ),
                                 },
                                 y: {
-                                  barPercentage: 0.8, // Ajusta a largura das barras
-                                  categoryPercentage: 0.8, // Ajusta o espaçamento entre as categorias
+                                  barPercentage: 0.8,
+                                  categoryPercentage: 0.8,
                                 },
                               },
                             }}
